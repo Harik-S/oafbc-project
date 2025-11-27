@@ -11,7 +11,7 @@ import random
 def scorer(cards, score_matrix):
     # this returns the score of a set of cards
     x = 0
-    for i in range(len(cards))
+    for i in range(len(cards)):
         score = score_matrix[cards[i] % 52]
         x+=score
     return x
@@ -28,7 +28,7 @@ n_cards = n * (m + 1) # since each team gets one card and there is one card in t
 n_decks = math.ceil(n_cards/52)
 
 # score matrix gives the score for each card
-score = [(i%13 + 1) for i in range(52) if (i%13)<10 else 20] # red first, A-K, A-K, A-K, A-K
+score = [(i%13 + 1) if (i%13)<10 else 20 for i in range(52)] # red first, A-K, A-K, A-K, A-K
 score[0] = score[13] = -50
 score[26] = score[39] = 0
 
@@ -38,8 +38,8 @@ middle = random.sample(all_cards, n)
 
 final_score = scorer(middle, score)
 
-all_cards = list(set(all_cards) - set(score_middle))
-teams_cards = []
+all_cards = list(set(all_cards) - set(middle))
+teams_cards = [[] for i in range(m)]
 for i in range(m):
     teams_cards[i] = random.sample(all_cards, n)
     all_cards = list(set(all_cards) - set(teams_cards[i]))
