@@ -5,52 +5,122 @@
 # other traders will behave in a way that is as of now not determined
 # POSSIBLE IMPROVEMENT: current idea is for market maker to offer a market with a set spread s = 0.2 around their EV. each trader takes k turns at mm so that n=km. open to other suggestions
 
-import math
 import random
 
-def scorer(cards, score_matrix):
-    # this returns the score of a set of cards
-    x = 0
-    for i in range(len(cards)):
-        score = score_matrix[cards[i] % 52]
-        x+=score
-    return x
+global_vars = {
+    "n_cards_init": 0,
+    "middle_cards": [],
+}
 
-def EV(known_middle, known_team, all_card, score_matrix, n):
-    # known_middle is the cards that are in the middle
-    # known team is the cards that cannot be in the middle because they're with you
-    leftover = list(set(all_card) - set(known_team) - set(known_middle))
-    return scorer(known_middle, score_matrix) + (n-len(known_middle))/(len(leftover)) * scorer(leftover, score_matrix)
 
-m = 10
-m_optimal = 5
-m_insider = 5
-m_sub_optimal = m - m_optimal - m_insider
+def setup_game_tracker_dicts(n_optimal, n_insider, n_sub_optimal):
+    return (
+        {
+            "optimal": [0] * n_optimal,
+            "insider": [0] * n_insider,
+            "sub_optimal": [0] * n_sub_optimal,
+        },
+        {
+            "optimal": [0] * n_optimal,
+            "insider": [0] * n_insider,
+            "sub_optimal": [0] * n_sub_optimal,
+        },
+        {
+            "optimal": {
+                "hand": [[]] * n_optimal,
+                "EV_next": 0,
+            },
+            "insider": {
+                "hand": [[]] * n_insider,
+                "EV_next": 0,
+            },
+            "sub_optimal": {
+                "hand": [[]] * n_sub_optimal,
+                "EV_next": 0,
+            },
+        },
+    )
 
-k = 2
-n = k * m
 
-n_cards = n * (m + 1) # since each team gets one card and there is one card in the middle
-n_decks = math.ceil(n_cards/52)
+def update_player_EV(player):
+    n_cards_unknown = (
+        global_vars["n_cards_init"]
+        - len(player["hand"])
+        - len(global_vars["middle_cards"])
+    )
+    player["EV"] = (
+        (n_cards_unknown + 1) * player["EV"] - player["hand"][-1]
+    ) / n_cards_unknown
 
-positions = [0] * m
-cash_position = [0] * m
 
-# score matrix gives the score for each card
-score = [(i%13 + 1) if (i%13)<10 else 20 for i in range(52)] # red first, A-K, A-K, A-K, A-K
-score[0] = score[13] = -50
-score[26] = score[39] = 0
+def get_score_vector(n_card_decks):
+    scores = [
+        (i % 13 + 1) if (i % 13) < 10 else 20
+        for i in range(52)
+        for _ in range(n_card_decks)
+    ]
 
-all_cards_clone = [i for i in range(52 * n_decks)] # defined separately to avoid reference issues
-all_cards = [i for i in range(52 * n_decks)]
+    for i in range(n_card_decks):
+        scores[i * 52] = scores[i * 52 + 13] = -50
+        scores[i * 52 + 26] = scores[i * 52 + 39] = 0
 
-middle = random.sample(all_cards, n)
+    return scores
 
-final_score = scorer(middle, score)
 
-all_cards = list(set(all_cards) - set(middle))
-teams_cards = [[] for i in range(m)]
-for i in range(m):
-    teams_cards[i] = random.sample(all_cards, n)
-    all_cards = list(set(all_cards) - set(teams_cards[i]))
+def draw_one_card(score_vector):
+    return score_vector.pop(random.randint(0, len(score_vector) - 1))
 
+
+def draw_cards_for_players(player_cards, score_vector):
+    for player_type in player_cards:
+        for player in player_cards[player_type]:
+            player["hand"].append(draw_one_card(score_vector))
+
+            if player_type in {"optimal", "insider"}:
+                update_player_EV(player)
+
+
+def draw_middle_card(score_vector, player_cards):
+    global_vars["middle_cards"].append(draw_one_card(score_vector))
+
+    for player_type in player_cards:
+        if player_type == "sub_optimal":
+            continue
+
+        for player in player_cards[player_type]:
+            update_player_EV(player)
+
+
+def play_round(score_vector, positions, cash, player_cards):
+    draw_cards_for_players(player_cards, score_vector)
+
+    # TODO: implement game playing logic
+
+    draw_middle_card(score_vector, player_cards)
+
+
+def play_game(n_card_decks, n_rounds, n_optimal, n_insider, n_sub_optimal):
+    score_vector = get_score_vector(n_card_decks)
+    total_score = sum(score_vector)
+
+    positions, cash, player_cards = setup_game_tracker_dicts(
+        n_optimal, n_insider, n_sub_optimal
+    )
+    for player_type in player_cards:
+        if player_type == "sub_optimal":
+            continue
+
+        for player in player_cards[player_type]:
+            player["EV_next"] = total_score / (n_card_decks * 52)
+
+    for _ in range(n_rounds):
+        play_round(score_vector, positions, cash, player_cards)
+
+
+if __name__ == "__main__":
+    n_card_decks, n_rounds = 3, 5
+    n_optimal, n_insider, n_sub_optimal = 5, 5, 0
+
+    global_vars["n_cards_init"] = n_card_decks * 52
+
+    play_game(n_card_decks, n_rounds, n_optimal, n_insider, n_sub_optimal)
