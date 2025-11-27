@@ -33,6 +33,9 @@ n = k * m
 n_cards = n * (m + 1) # since each team gets one card and there is one card in the middle
 n_decks = math.ceil(n_cards/52)
 
+positions = [0] * m
+cash_position = [0] * m
+
 # score matrix gives the score for each card
 score = [(i%13 + 1) if (i%13)<10 else 20 for i in range(52)] # red first, A-K, A-K, A-K, A-K
 score[0] = score[13] = -50
