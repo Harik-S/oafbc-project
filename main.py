@@ -16,6 +16,12 @@ def scorer(cards, score_matrix):
         x+=score
     return x
 
+def EV(known_middle, known_team, all_card, score_matrix, n):
+    # known_middle is the cards that are in the middle
+    # known team is the cards that cannot be in the middle because they're with you
+    leftover = list(set(all_card) - set(known_team) - set(known_middle))
+    return scorer(known_middle, score_matrix) + (n-len(known_middle))/(len(leftover)) * scorer(leftover, score_matrix)
+
 m = 10
 m_optimal = 5
 m_insider = 5
@@ -32,6 +38,7 @@ score = [(i%13 + 1) if (i%13)<10 else 20 for i in range(52)] # red first, A-K, A
 score[0] = score[13] = -50
 score[26] = score[39] = 0
 
+all_cards_clone = [i for i in range(52 * n_decks)] # defined separately to avoid reference issues
 all_cards = [i for i in range(52 * n_decks)]
 
 middle = random.sample(all_cards, n)
@@ -44,4 +51,3 @@ for i in range(m):
     teams_cards[i] = random.sample(all_cards, n)
     all_cards = list(set(all_cards) - set(teams_cards[i]))
 
-print(teams_cards)
