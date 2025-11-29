@@ -3,22 +3,27 @@ import random
 global_vars = {
     "n_cards_init": 0,
     "middle_cards": [],
+    "user_position": 0,
+    "user_cash": 0,
     "middle_cards_EV": 0,  # EV of the 5 middle cards to be drawn
 }
 
 
 def setup_game_tracker_dicts(n_optimal, n_insider, n_sub_optimal):
     return (
+        # POSITIONS DICT
         {
             "optimal": [0] * n_optimal,
             "insider": [0] * n_insider,
             "sub_optimal": [0] * n_sub_optimal,
         },
+        # CASH DICT
         {
             "optimal": [0] * n_optimal,
             "insider": [0] * n_insider,
             "sub_optimal": [0] * n_sub_optimal,
         },
+        # PLAYER CARDS DICT
         {
             "optimal": {
                 "hand": [[] for _ in range(n_optimal)],
@@ -99,13 +104,60 @@ def draw_middle_card(score_vector, player_cards):
     update_middle_cards_EV(global_vars["middle_cards"][-1], player_cards)
 
 
+def get_user_round_decision():
+    print("=" * 53)
+    print(f"{"=" * 20} PLAYER MOVE {"=" * 20}")
+    print("=" * 53, "\n")
+
+    bid = int(input(f"Enter your bid: "))
+    ask = int(input(f"Enter your ask: "))
+
+    print("=" * 53)
+    print(f"{"=" * 18} PLAYER MOVE END {"=" * 18}")
+    print("=" * 53, "\n")
+
+    return bid, ask
+
+
+def make_player_sell(player_type, player_idx, positions, cash, bid):
+    positions[player_type][player_idx] -= 1
+    cash[player_type][player_idx] += bid
+
+    global_vars["user_position"] += 1
+    global_vars["user_cash"] -= bid
+
+
+def make_player_buy(player_type, player_idx, positions, cash, ask):
+    positions[player_type][player_idx] += 1
+    cash[player_type][player_idx] -= ask
+
+    global_vars["user_position"] -= 1
+    global_vars["user_cash"] += ask
+
+
+def simulate_taker_moves(player_cards, positions, cash, user_bid, user_ask):
+    for player_type in player_cards:
+        for i in range(len(player_cards[player_type]["hand"])):
+            if player_cards[player_type]["EV_next"][i] < user_bid:
+                # BOT SELLS
+                make_player_sell(player_type, i, positions, cash, user_bid)
+
+            if player_cards[player_type]["EV_next"][i] > user_ask:
+                # BOT BUYS
+                make_player_buy(player_type, i, positions, cash, user_ask)
+
+
 def play_round(score_vector, positions, cash, player_cards):
     draw_cards_for_players(player_cards, score_vector)
-
-    # TODO: implement game playing logic
-
     draw_middle_card(score_vector, player_cards)
 
+    print(
+        f"\n\nMiddle scores:\n\n== {" == ".join(map(str, global_vars["middle_cards"]))} ==\n\n"
+    )
+
+    bid, ask = get_user_round_decision()
+
+    simulate_taker_moves(player_cards, positions, cash, bid, ask)
     print(f"Turn completed. Middle cards: {global_vars['middle_cards']}")
     print(f"Expected value of remaining middle cards: {global_vars['middle_cards_EV']:.2f}")
     print(player_cards)
@@ -133,7 +185,7 @@ def play_game(n_card_decks, n_rounds, n_optimal, n_insider, n_sub_optimal):
 
 
 if __name__ == "__main__":
-    n_card_decks, n_rounds = 2, 5
+    n_card_decks, n_rounds = 1, 2
     n_optimal, n_insider, n_sub_optimal = 5, 5, 0
 
     global_vars["n_cards_init"] = n_card_decks * 52
