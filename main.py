@@ -3,6 +3,7 @@ import random
 global_vars = {
     "n_cards_init": 0,
     "middle_cards": [],
+    "middle_cards_EV": 0,  # EV of the 5 middle cards to be drawn
 }
 
 
@@ -35,15 +36,31 @@ def setup_game_tracker_dicts(n_optimal, n_insider, n_sub_optimal):
     )
 
 
-def update_player_EV_next(player_type_dict, idx_player, new_card_val):
-    n_cards_unknown = (
-        global_vars["n_cards_init"]
-        - len(player_type_dict["hand"][idx_player])
-        - len(global_vars["middle_cards"])
-    )
-    player_type_dict["EV_next"][idx_player] = (
-        (n_cards_unknown + 1) * player_type_dict["EV_next"][idx_player] - new_card_val
-    ) / n_cards_unknown
+def update_middle_cards_EV(new_card_val, player_cards=None):
+    """Update the expected value of the remaining middle cards after revealing a new card"""
+    n_middle_cards_remaining = 5 - len(global_vars["middle_cards"])
+    
+    if n_middle_cards_remaining <= 0:
+        # When all 5 cards are revealed, EV is the actual sum of the 5 middle cards
+        global_vars["middle_cards_EV"] = sum(global_vars["middle_cards"])
+        return
+    
+    # Calculate total cards seen (middle cards + all player cards)
+    total_cards_seen = len(global_vars["middle_cards"])
+    
+    # Count cards in all players' hands if player_cards is provided
+    if player_cards:
+        for player_type in player_cards:
+            for hand in player_cards[player_type]["hand"]:
+                total_cards_seen += len(hand)
+    
+    n_cards_unknown = global_vars["n_cards_init"] - total_cards_seen
+    
+    # Update EV by removing the revealed card's contribution
+    if n_cards_unknown > 0:
+        global_vars["middle_cards_EV"] = (
+            (n_cards_unknown + 1) * global_vars["middle_cards_EV"] - new_card_val
+        ) / n_cards_unknown
 
 
 def get_score_vector(n_card_decks):
@@ -70,24 +87,16 @@ def draw_cards_for_players(player_cards, score_vector):
             player_cards[player_type]["hand"][i].append(draw_one_card(score_vector))
 
             if player_type in {"optimal", "insider"}:
-                update_player_EV_next(
-                    player_cards[player_type],
-                    i,
-                    player_cards[player_type]["hand"][i][-1],
+                update_middle_cards_EV(
+                    player_cards[player_type]["hand"][i][-1], player_cards
                 )
 
 
 def draw_middle_card(score_vector, player_cards):
     global_vars["middle_cards"].append(draw_one_card(score_vector))
 
-    for player_type in player_cards:
-        if player_type == "sub_optimal":
-            continue
-
-        for i in range(len(player_cards[player_type])):
-            update_player_EV_next(
-                player_cards[player_type], i, global_vars["middle_cards"][-1]
-            )
+    # Update middle cards EV once after drawing the middle card
+    update_middle_cards_EV(global_vars["middle_cards"][-1], player_cards)
 
 
 def play_round(score_vector, positions, cash, player_cards):
@@ -97,6 +106,8 @@ def play_round(score_vector, positions, cash, player_cards):
 
     draw_middle_card(score_vector, player_cards)
 
+    print(f"Turn completed. Middle cards: {global_vars['middle_cards']}")
+    print(f"Expected value of remaining middle cards: {global_vars['middle_cards_EV']:.2f}")
     print(player_cards)
 
 
@@ -107,6 +118,9 @@ def play_game(n_card_decks, n_rounds, n_optimal, n_insider, n_sub_optimal):
     positions, cash, player_cards = setup_game_tracker_dicts(
         n_optimal, n_insider, n_sub_optimal
     )
+    # Initialize middle cards EV to average card value
+    global_vars["middle_cards_EV"] = total_score / (n_card_decks * 52) * 5  # EV for 5 middle cards
+    
     for player_type in player_cards:
         if player_type == "sub_optimal":
             continue
