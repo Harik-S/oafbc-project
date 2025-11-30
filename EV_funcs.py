@@ -55,4 +55,4 @@ def update_sub_optimal_player_EV(player_type_dict, idx_player):
 
     player_type_dict["EV_middle"][idx_player] = (
         Y + R / N * (S - Z - Y)
-    ) + np.random.normal(0, 5)
+    ) + np.random.normal(0, global_vars["sub_optimal_noise_std"])

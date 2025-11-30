@@ -230,5 +230,6 @@ if __name__ == "__main__":
 
     global_vars["n_cards_init"] = n_card_decks * 52
     global_vars["n_rounds"] = n_rounds
+    global_vars["sub_optimal_noise_std"] = 3
 
     play_game(n_card_decks, n_optimal, n_insider, n_sub_optimal)
