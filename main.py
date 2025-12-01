@@ -229,9 +229,12 @@ def play_game(n_card_decks, n_optimal, n_insider, n_sub_optimal):
 if __name__ == "__main__":
     n_card_decks, n_rounds = 1000, 3
     n_optimal, n_insider, n_sub_optimal = 100, 50, 1000
-
+    print("The number of optimal players is " + str(n_optimal))
+    print("The number of insider players is " + str(n_insider))
+    print("The number of sub optimal players is " + str(n_sub_optimal))
+    global_vars["n_rounds"] = int(input("How many rounds do you want to play? "))
+    n_card_decks = int(input("How many decks do you want to play? Note that the minimum number of decks is " + str(ceil(n_rounds*(n_optimal+n_insider+n_sub_optimal+2)/52))))
     global_vars["n_cards_init"] = n_card_decks * 52
-    global_vars["n_rounds"] = n_rounds
     global_vars["sub_optimal_noise_std"] = 3
 
     play_game(n_card_decks, n_optimal, n_insider, n_sub_optimal)
