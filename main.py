@@ -42,26 +42,53 @@ def setup_game_tracker_dicts(n_optimal, n_insider, n_sub_optimal):
 
 
 def update_middle_cards_EV(new_card_val, player_cards=None):
-    """Update the expected value of the remaining middle cards after revealing a new card"""
+    """Update the expected value of the remaining middle cards for each player based on their visible cards"""
     n_middle_cards_remaining = 5 - len(global_vars["middle_cards"])
     
     if n_middle_cards_remaining <= 0:
-        # When all 5 cards are revealed, EV is the actual sum of the 5 middle cards
-        global_vars["middle_cards_EV"] = sum(global_vars["middle_cards"])
+        # When all 5 cards are revealed, EV is the actual sum for everyone
+        actual_sum = sum(global_vars["middle_cards"])
+        if player_cards:
+            for player_type in player_cards:
+                for i in range(len(player_cards[player_type]["EV_next"])):
+                    player_cards[player_type]["EV_next"][i] = actual_sum
+        global_vars["middle_cards_EV"] = actual_sum
         return
     
-    # Calculate total cards seen (middle cards + all player cards)
-    total_cards_seen = len(global_vars["middle_cards"])
+    if not player_cards:
+        return
     
-    # Count cards in all players' hands if player_cards is provided
-    if player_cards:
-        for player_type in player_cards:
-            for hand in player_cards[player_type]["hand"]:
-                total_cards_seen += len(hand)
+    # Update EV for each player based on cards they can see
+    for player_type in player_cards:
+        for i in range(len(player_cards[player_type]["EV_next"])):
+            # Calculate cards this player can see
+            cards_seen_by_player = len(global_vars["middle_cards"])
+            
+            # Add cards from this player's hand
+            cards_seen_by_player += len(player_cards[player_type]["hand"][i])
+            
+            # For optimal and insider players, they can also see other players' cards
+            if player_type in {"optimal", "insider"}:
+                for other_type in player_cards:
+                    for j, hand in enumerate(player_cards[other_type]["hand"]):
+                        if other_type != player_type or j != i:  # Don't double count own hand
+                            cards_seen_by_player += len(hand)
+            
+            n_cards_unknown_to_player = global_vars["n_cards_init"] - cards_seen_by_player
+            
+            # Update this player's EV
+            if n_cards_unknown_to_player > 0:
+                player_cards[player_type]["EV_next"][i] = (
+                    (n_cards_unknown_to_player + 1) * player_cards[player_type]["EV_next"][i] - new_card_val
+                ) / n_cards_unknown_to_player
+    
+    # Update global middle cards EV (can be average of optimal players or use total cards seen)
+    total_cards_seen = len(global_vars["middle_cards"])
+    for player_type in player_cards:
+        for hand in player_cards[player_type]["hand"]:
+            total_cards_seen += len(hand)
     
     n_cards_unknown = global_vars["n_cards_init"] - total_cards_seen
-    
-    # Update EV by removing the revealed card's contribution
     if n_cards_unknown > 0:
         global_vars["middle_cards_EV"] = (
             (n_cards_unknown + 1) * global_vars["middle_cards_EV"] - new_card_val
@@ -106,14 +133,14 @@ def draw_middle_card(score_vector, player_cards):
 
 def get_user_round_decision():
     print("=" * 53)
-    print(f"{"=" * 20} PLAYER MOVE {"=" * 20}")
+    print(f"{'=' * 20} PLAYER MOVE {'=' * 20}")
     print("=" * 53, "\n")
 
     bid = int(input(f"Enter your bid: "))
     ask = int(input(f"Enter your ask: "))
 
     print("=" * 53)
-    print(f"{"=" * 18} PLAYER MOVE END {"=" * 18}")
+    print(f"{'=' * 18} PLAYER MOVE END {'=' * 18}")
     print("=" * 53, "\n")
 
     return bid, ask
@@ -152,7 +179,7 @@ def play_round(score_vector, positions, cash, player_cards):
     draw_middle_card(score_vector, player_cards)
 
     print(
-        f"\n\nMiddle scores:\n\n== {" == ".join(map(str, global_vars["middle_cards"]))} ==\n\n"
+        f"\n\nMiddle scores:\n\n== {' == '.join(map(str, global_vars['middle_cards']))} ==\n\n"
     )
 
     bid, ask = get_user_round_decision()
