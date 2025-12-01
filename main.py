@@ -129,6 +129,8 @@ def simulate_taker_moves(player_cards, positions, cash, user_bid, user_ask):
 def play_round(score_vector, positions, cash, player_cards):
     draw_cards_for_players(player_cards, score_vector)
 
+    print(f"User card score: {draw_one_card(score_vector)}")
+
     print(
         f"\n\nMiddle scores:\n\n== {" == ".join(map(str, global_vars["middle_cards"][:global_vars["curr_round"]]))} ==\n\n"
     )
