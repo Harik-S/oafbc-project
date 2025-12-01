@@ -75,8 +75,8 @@ def get_user_round_decision():
     print(f"{"=" * 20} PLAYER MOVE {"=" * 20}")
     print("=" * 53, "\n")
 
-    bid = int(input(f"Enter your bid: "))
-    ask = int(input(f"Enter your ask: "))
+    bid = float(input(f"Enter your bid: "))
+    ask = float(input(f"Enter your ask: "))
 
     print("")
     print("=" * 53)
