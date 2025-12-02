@@ -2,7 +2,7 @@ import random
 
 from constants import global_vars
 from EV_funcs import *
-
+from math import ceil
 
 def setup_game_tracker_dicts(n_optimal, n_insider, n_sub_optimal):
     return (
@@ -231,8 +231,8 @@ if __name__ == "__main__":
     n_insider = int(input("How many insider players should there be? (50 is a good starting point) "))
     n_sub_optimal = int(input("How many sub optimal players should there be? (1000 is a good starting point) "))
     global_vars["n_rounds"] = int(input("How many rounds do you want to play? "))
-    n_card_decks = int(input("How many decks do you want to play? Note that the minimum number of decks is " + str(ceil(n_rounds*(n_optimal+n_insider+n_sub_optimal+2)/52))))
-    if (n_card_decks < ceil(n_rounds*(n_optimal+n_insider+n_sub_optimal+2)/52)):
+    n_card_decks = int(input("How many decks do you want to play? Note that the minimum number of decks is " + str(ceil(global_vars["n_rounds"]*(n_optimal+n_insider+n_sub_optimal+2)/52))) + " ")
+    if (n_card_decks < ceil(global_vars["n_rounds"]*(n_optimal+n_insider+n_sub_optimal+2)/52)):
         raise Exception("There are too few decks to conduct the game")
     global_vars["n_cards_init"] = n_card_decks * 52
     global_vars["sub_optimal_noise_std"] = 3
