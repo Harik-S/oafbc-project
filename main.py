@@ -72,15 +72,15 @@ def reveal_middle_card(player_cards):
 
 def get_user_round_decision():
     print("=" * 53)
-    print(f"{"=" * 20} PLAYER MOVE {"=" * 20}")
+    print(f"{'='* 20} PLAYER MOVE {'=' * 20}")
     print("=" * 53, "\n")
 
-    bid = float(input(f"Enter your bid: "))
-    ask = float(input(f"Enter your ask: "))
+    bid = float(input(f'Enter your bid: '))
+    ask = float(input(f'Enter your ask: '))
 
     print("")
     print("=" * 53)
-    print(f"{"=" * 18} PLAYER MOVE END {"=" * 18}")
+    print(f"{'=' * 18} PLAYER MOVE END {'=' * 18}")
     print("=" * 53, "\n")
 
     return bid, ask
@@ -119,9 +119,9 @@ def simulate_taker_moves(player_cards, positions, cash, user_bid, user_ask):
                 make_player_buy(player_type, i, positions, cash, user_ask)
                 n_user_sells += 1
                 net_cash += user_ask
-    print(f"ROUND {global_vars["curr_round"]} STATS:")
+    print(f"ROUND {global_vars['curr_round']} STATS:")
     print(
-        f"Bought: {n_user_buys} @ {user_bid}\nSold: {n_user_sells} @ {user_ask}\nNet cash: {net_cash}\nPosition: {global_vars["user_position"]}"
+        f"Bought: {n_user_buys} @ {user_bid}\nSold: {n_user_sells} @ {user_ask}\nNet cash: {net_cash}\nPosition: {global_vars['user_position']}"
     )
 
 
@@ -131,7 +131,7 @@ def play_round(score_vector, positions, cash, player_cards):
     print(f"User card score: {draw_one_card(score_vector)}")
 
     print(
-        f"\n\nMiddle scores:\n\n== {" == ".join(map(str, global_vars["middle_cards"][:global_vars["curr_round"]]))} ==\n\n"
+        f"\n\nMiddle scores:\n\n== {' == '.join(map(str, global_vars['middle_cards'][:global_vars['curr_round']]))} ==\n\n"
     )
 
     bid, ask = get_user_round_decision()
@@ -143,6 +143,8 @@ def play_round(score_vector, positions, cash, player_cards):
 
 
 def print_taker_bot_results(positions, cash, player_type):
+    if len(positions[player_type]) == 0:
+        return
     print("=" * 53)
     print(f"Average {player_type} result\n")
 
@@ -166,21 +168,20 @@ def print_taker_bot_results(positions, cash, player_type):
 
 def print_user_results():
     print("=" * 53)
-    print(f"{"=" * 16} FINAL USER RESULTS {"=" * 17}")
+    print(f"{'=' * 16} FINAL USER RESULTS {'=' * 17}")
     print("=" * 53, "\n")
 
-    print(f"Final user position: {global_vars["user_position"]}")
-    print(f"Final user cash: {global_vars["user_cash"]}")
-
+    print(f"Final user position: {global_vars['user_position']}")
+    print(f"Final user cash: {global_vars['user_cash']}")
     print(
-        f"Net profit: {global_vars["user_position"] * sum(global_vars["middle_cards"]) + global_vars["user_cash"]}"
+        f"Net profit: {global_vars['user_position'] * sum(global_vars['middle_cards']) + global_vars['user_cash']}"
     )
 
 
 def print_final_results(positions, cash):
     print("\n\n\n")
     print(
-        f"\n\nFinal middle scores:\n\n== {" == ".join(map(str, global_vars["middle_cards"]))} ==\n\n"
+        f"\n\nFinal middle scores:\n\n== {' == '.join(map(str, global_vars['middle_cards']))} ==\n\n"
     )
 
     print_taker_bot_results(positions, cash, "insider")
@@ -219,8 +220,8 @@ def play_game(n_card_decks, n_optimal, n_insider, n_sub_optimal):
     for _ in range(global_vars["n_rounds"]):
         play_round(score_vector, positions, cash, player_cards)
 
-    print(positions)
-    print(cash)
+    # print(positions)
+    # print(cash)
 
     print_final_results(positions, cash)
 
@@ -230,7 +231,7 @@ if __name__ == "__main__":
     n_insider = int(input("How many insider players should there be? (50 is a good starting point) "))
     n_sub_optimal = int(input("How many sub optimal players should there be? (1000 is a good starting point) "))
     global_vars["n_rounds"] = int(input("How many rounds do you want to play? "))
-    n_card_decks = int(input("How many decks do you want to play? Note that the minimum number of decks is " + str(ceil(global_vars["n_rounds"]*(n_optimal+n_insider+n_sub_optimal+2)/52))) + ": ")
+    n_card_decks = int(input("How many decks do you want to play? Note that the minimum number of decks is " + str(ceil(global_vars["n_rounds"]*(n_optimal+n_insider+n_sub_optimal+2)/52))+": "))
     if (n_card_decks < ceil(global_vars["n_rounds"]*(n_optimal+n_insider+n_sub_optimal+2)/52)):
         raise Exception("There are too few decks to conduct the game")
     global_vars["n_cards_init"] = n_card_decks * 52
