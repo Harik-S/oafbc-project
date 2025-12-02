@@ -119,10 +119,9 @@ def simulate_taker_moves(player_cards, positions, cash, user_bid, user_ask):
                 make_player_buy(player_type, i, positions, cash, user_ask)
                 n_user_sells += 1
                 net_cash += user_ask
-
     print(f"ROUND {global_vars["curr_round"]} STATS:")
     print(
-        f"Bought: {n_user_buys} @ {user_bid}\nSold: {n_user_sells} @ {user_ask}\nNet cash: {net_cash}"
+        f"Bought: {n_user_buys} @ {user_bid}\nSold: {n_user_sells} @ {user_ask}\nNet cash: {net_cash}\nPosition: {global_vars["user_position"]}"
     )
 
 
@@ -231,7 +230,7 @@ if __name__ == "__main__":
     n_insider = int(input("How many insider players should there be? (50 is a good starting point) "))
     n_sub_optimal = int(input("How many sub optimal players should there be? (1000 is a good starting point) "))
     global_vars["n_rounds"] = int(input("How many rounds do you want to play? "))
-    n_card_decks = int(input("How many decks do you want to play? Note that the minimum number of decks is " + str(ceil(global_vars["n_rounds"]*(n_optimal+n_insider+n_sub_optimal+2)/52))) + " ")
+    n_card_decks = int(input("How many decks do you want to play? Note that the minimum number of decks is " + str(ceil(global_vars["n_rounds"]*(n_optimal+n_insider+n_sub_optimal+2)/52))) + ": ")
     if (n_card_decks < ceil(global_vars["n_rounds"]*(n_optimal+n_insider+n_sub_optimal+2)/52)):
         raise Exception("There are too few decks to conduct the game")
     global_vars["n_cards_init"] = n_card_decks * 52
