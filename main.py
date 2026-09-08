@@ -1,56 +1,240 @@
-# oxford alpha fund quant boot camp project
-# game: suppose there are m teams, n rounds, in each round, each team gets a card and there is one card revealed in the middle
-# optimal traders will calculate the EV based on available information to them. then they will trade based on the bid and offer provided by the market maker
-# insider traders will have information from the next round in advance
-# other traders will behave in a way that is as of now not determined
-# POSSIBLE IMPROVEMENT: current idea is for market maker to offer a market with a set spread s = 0.2 around their EV. each trader takes k turns at mm so that n=km. open to other suggestions
-
-import math
 import random
 
-def scorer(cards, score_matrix):
-    # this returns the score of a set of cards
-    x = 0
-    for i in range(len(cards)):
-        score = score_matrix[cards[i] % 52]
-        x+=score
-    return x
+from constants import global_vars
+from EV_funcs import *
+from math import ceil
 
-def EV(known_middle, known_team, all_card, score_matrix, n):
-    # known_middle is the cards that are in the middle
-    # known team is the cards that cannot be in the middle because they're with you
-    leftover = list(set(all_card) - set(known_team) - set(known_middle))
-    return scorer(known_middle, score_matrix) + (n-len(known_middle))/(len(leftover)) * scorer(leftover, score_matrix)
+def setup_game_tracker_dicts(n_optimal, n_insider, n_sub_optimal):
+    return (
+        # POSITIONS DICT
+        {
+            "optimal": [0] * n_optimal,
+            "insider": [0] * n_insider,
+            "sub_optimal": [0] * n_sub_optimal,
+        },
+        # CASH DICT
+        {
+            "optimal": [0] * n_optimal,
+            "insider": [0] * n_insider,
+            "sub_optimal": [0] * n_sub_optimal,
+        },
+        # PLAYER CARDS DICT
+        {
+            "optimal": {
+                "hand": [[] for _ in range(n_optimal)],
+                "EV_middle": [0] * n_optimal,
+            },
+            "insider": {
+                "hand": [[] for _ in range(n_insider)],
+                "EV_middle": [0] * n_insider,
+            },
+            "sub_optimal": {
+                "hand": [[] for _ in range(n_sub_optimal)],
+                "EV_middle": [0] * n_sub_optimal,
+            },
+        },
+    )
 
-m = 10
-m_optimal = 5
-m_insider = 5
-m_sub_optimal = m - m_optimal - m_insider
 
-k = 2
-n = k * m
+def get_score_vector(n_card_decks):
+    scores = [
+        (i % 13 + 1) if (i % 13) < 10 else 20
+        for _ in range(n_card_decks)
+        for i in range(52)
+    ]
 
-n_cards = n * (m + 1) # since each team gets one card and there is one card in the middle
-n_decks = math.ceil(n_cards/52)
+    for i in range(n_card_decks):
+        scores[i * 52] = scores[i * 52 + 13] = -50
+        scores[i * 52 + 26] = scores[i * 52 + 39] = 0
 
-positions = [0] * m
-cash_position = [0] * m
+    random.shuffle(scores)
 
-# score matrix gives the score for each card
-score = [(i%13 + 1) if (i%13)<10 else 20 for i in range(52)] # red first, A-K, A-K, A-K, A-K
-score[0] = score[13] = -50
-score[26] = score[39] = 0
+    return scores
 
-all_cards_clone = [i for i in range(52 * n_decks)] # defined separately to avoid reference issues
-all_cards = [i for i in range(52 * n_decks)]
 
-middle = random.sample(all_cards, n)
+def draw_one_card(score_vector):
+    return score_vector.pop()
 
-final_score = scorer(middle, score)
 
-all_cards = list(set(all_cards) - set(middle))
-teams_cards = [[] for i in range(m)]
-for i in range(m):
-    teams_cards[i] = random.sample(all_cards, n)
-    all_cards = list(set(all_cards) - set(teams_cards[i]))
+def draw_cards_for_players(player_cards, score_vector):
+    for player_type in player_cards:
+        for i in range(len(player_cards[player_type]["hand"])):
+            player_cards[player_type]["hand"][i].append(draw_one_card(score_vector))
 
+            update_player_EV(player_type, player_cards, i)
+
+
+def reveal_middle_card(player_cards):
+    for player_type in player_cards:
+        for i in range(len(player_cards[player_type]["hand"])):
+            update_player_EV(player_type, player_cards, i)
+
+
+def get_user_round_decision():
+    print("=" * 53)
+    print(f"{'='* 20} PLAYER MOVE {'=' * 20}")
+    print("=" * 53, "\n")
+
+    bid = float(input(f'Enter your bid: '))
+    ask = float(input(f'Enter your ask: '))
+
+    print("")
+    print("=" * 53)
+    print(f"{'=' * 18} PLAYER MOVE END {'=' * 18}")
+    print("=" * 53, "\n")
+
+    return bid, ask
+
+
+def make_player_sell(player_type, player_idx, positions, cash, bid):
+    positions[player_type][player_idx] -= 1
+    cash[player_type][player_idx] += bid
+
+    global_vars["user_position"] += 1
+    global_vars["user_cash"] -= bid
+
+
+def make_player_buy(player_type, player_idx, positions, cash, ask):
+    positions[player_type][player_idx] += 1
+    cash[player_type][player_idx] -= ask
+
+    global_vars["user_position"] -= 1
+    global_vars["user_cash"] += ask
+
+
+def simulate_taker_moves(player_cards, positions, cash, user_bid, user_ask):
+    n_user_buys, n_user_sells = 0, 0
+    net_cash = 0
+
+    for player_type in player_cards:
+        for i in range(len(player_cards[player_type]["hand"])):
+            if player_cards[player_type]["EV_middle"][i] < user_bid:
+                # BOT SELLS
+                make_player_sell(player_type, i, positions, cash, user_bid)
+                n_user_buys += 1
+                net_cash -= user_bid
+
+            if player_cards[player_type]["EV_middle"][i] > user_ask:
+                # BOT BUYS
+                make_player_buy(player_type, i, positions, cash, user_ask)
+                n_user_sells += 1
+                net_cash += user_ask
+    print(f"ROUND {global_vars['curr_round']} STATS:")
+    print(
+        f"Bought: {n_user_buys} @ {user_bid}\nSold: {n_user_sells} @ {user_ask}\nNet cash: {net_cash}\nPosition: {global_vars['user_position']}"
+    )
+
+
+def play_round(score_vector, positions, cash, player_cards):
+    draw_cards_for_players(player_cards, score_vector)
+
+    print(f"User card score: {draw_one_card(score_vector)}")
+
+    print(
+        f"\n\nMiddle scores:\n\n== {' == '.join(map(str, global_vars['middle_cards'][:global_vars['curr_round']]))} ==\n\n"
+    )
+
+    bid, ask = get_user_round_decision()
+    simulate_taker_moves(player_cards, positions, cash, bid, ask)
+
+    reveal_middle_card(player_cards)
+
+    global_vars["curr_round"] += 1
+
+
+def print_taker_bot_results(positions, cash, player_type):
+    if len(positions[player_type]) == 0:
+        return
+    print("=" * 53)
+    print(f"Average {player_type} result\n")
+
+    print(
+        f"Average {player_type} position: {sum(positions[player_type]) / len(positions[player_type])}"
+    )
+    print(
+        f"Average {player_type} cash: {sum(cash[player_type]) / len(cash[player_type])}"
+    )
+
+    final_value = sum(global_vars["middle_cards"])
+    net_profit = [
+        positions[player_type][i] * final_value + cash[player_type][i]
+        for i in range(len(positions[player_type]))
+    ]
+
+    print(
+        f"Average {player_type} net profit: " + f"{sum(net_profit) / len(net_profit)}"
+    )
+
+
+def print_user_results():
+    print("=" * 53)
+    print(f"{'=' * 16} FINAL USER RESULTS {'=' * 17}")
+    print("=" * 53, "\n")
+
+    print(f"Final user position: {global_vars['user_position']}")
+    print(f"Final user cash: {global_vars['user_cash']}")
+    print(
+        f"Net profit: {global_vars['user_position'] * sum(global_vars['middle_cards']) + global_vars['user_cash']}"
+    )
+
+
+def print_final_results(positions, cash):
+    print("\n\n\n")
+    print(
+        f"\n\nFinal middle scores:\n\n== {' == '.join(map(str, global_vars['middle_cards']))} ==\n\n"
+    )
+
+    print_taker_bot_results(positions, cash, "insider")
+    print_taker_bot_results(positions, cash, "optimal")
+    print_taker_bot_results(positions, cash, "sub_optimal")
+
+    print_user_results()
+
+
+def set_initial_EVs(player_cards, score_vector):
+    total_score = sum(score_vector)
+
+    for player_type in player_cards:
+        for i in range(len(player_cards[player_type]["EV_middle"])):
+            player_cards[player_type]["EV_middle"][i] = (
+                total_score / (n_card_decks * 52) * global_vars["n_rounds"]
+            )
+
+
+def draw_middle_cards(score_vector):
+    for _ in range(global_vars["n_rounds"]):
+        global_vars["middle_cards"].append(draw_one_card(score_vector))
+
+
+def play_game(n_card_decks, n_optimal, n_insider, n_sub_optimal):
+    score_vector = get_score_vector(n_card_decks)
+    global_vars["total_score_sum"] = sum(score_vector)
+
+    positions, cash, player_cards = setup_game_tracker_dicts(
+        n_optimal, n_insider, n_sub_optimal
+    )
+
+    set_initial_EVs(player_cards, score_vector)
+    draw_middle_cards(score_vector)
+
+    for _ in range(global_vars["n_rounds"]):
+        play_round(score_vector, positions, cash, player_cards)
+
+    # print(positions)
+    # print(cash)
+
+    print_final_results(positions, cash)
+
+
+if __name__ == "__main__":
+    n_optimal = int(input("How many optimal players should there be? (100 is a good starting point) "))
+    n_insider = int(input("How many insider players should there be? (50 is a good starting point) "))
+    n_sub_optimal = int(input("How many sub optimal players should there be? (1000 is a good starting point) "))
+    global_vars["n_rounds"] = int(input("How many rounds do you want to play? "))
+    n_card_decks = int(input("How many decks do you want to play? Note that the minimum number of decks is " + str(ceil(global_vars["n_rounds"]*(n_optimal+n_insider+n_sub_optimal+2)/52))+": "))
+    if (n_card_decks < ceil(global_vars["n_rounds"]*(n_optimal+n_insider+n_sub_optimal+2)/52)):
+        raise Exception("There are too few decks to conduct the game")
+    global_vars["n_cards_init"] = n_card_decks * 52
+    global_vars["sub_optimal_noise_std"] = 3
+
+    play_game(n_card_decks, n_optimal, n_insider, n_sub_optimal)
